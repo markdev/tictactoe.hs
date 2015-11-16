@@ -37,11 +37,21 @@ gameLoop boardstate players currentPlayer = do
 
 enterMove boardstate players currentPlayer
     | players == "2" = do
-        putStrLn "Inside enterMove"
-        putStrLn ("Boardstate: " ++ show boardstate)
-        putStrLn ("Players: " ++ players)
-        putStrLn ("currentPlayer: " ++ currentPlayer)
-        gameLoop boardstate players (if currentPlayer == "1" then "2" else "1")
+        displayBoard boardstate
+        putStrLn ("Player " ++ currentPlayer ++ ", it's your turn. (A-I)")
+        move <- getLine
+        if move `elem` [ show sq | sq <- concat boardstate]
+            then do
+           	   print move
+           	   gameLoop (newBoard move currentPlayer boardstate) players (if currentPlayer == "1" then "2" else "1")
+            else do
+           	   putStrLn "Gotta have an else"
+    | otherwise = do
+        putStrLn "This is the otherwise case"
+
+newBoard :: String -> String -> Board -> Board
+newBoard move currentPlayer boardstate = [ [if show sq == move then mark else sq | sq <- row] | row <- boardstate]
+    where mark = if currentPlayer == "1" then X else O
 
 endgame player = do
     putStrLn ("The game is over, and player " ++ show player ++ " wins!")
@@ -52,6 +62,9 @@ endgame player = do
     	then gameSelect 
     	else do
     	    putStrLn "Goodbye"
+
+displayBoard boardstate = do
+    mapM_ print boardstate
 
 detectWin boardstate = "0"
 

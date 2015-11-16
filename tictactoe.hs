@@ -1,6 +1,7 @@
+import Data.List
 import Control.Monad
 
-data Square = A | B | C | D | E | F | G | H | I | X | O deriving (Show, Read)
+data Square = A | B | C | D | E | F | G | H | I | X | O deriving (Show, Read, Eq, Ord)
 type Row = [Square]
 type Board = [Row]
 
@@ -66,8 +67,18 @@ endgame player = do
 displayBoard boardstate = do
     mapM_ print boardstate
 
-detectWin boardstate = "0"
-
+detectWin :: Board -> String
+detectWin boardstate
+   | [X,X,X] `elem` boardstate ++ transpose boardstate = "1"
+   | [X,X,X] == nwtose boardstate ++ netosw boardstate = "1"
+   | [O,O,O] `elem` boardstate ++ transpose boardstate = "2"
+   | [O,O,O] == nwtose boardstate ++ netosw boardstate = "2"
+   | otherwise = "0"
+   where
+     nwtose :: Board -> [Square]
+     nwtose bs = bs!!0!!0 : bs!!1!!1 : bs!!2!!2 : []
+     netosw :: Board -> [Square]
+     netosw bs = bs!!0!!2 : bs!!1!!1 : bs!!2!!0 : []
 
 emptyBoard :: Board
 emptyBoard = [[A,B,C],[D,E,F],[G,H,I]]

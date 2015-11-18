@@ -1,5 +1,6 @@
 import Data.List
 import Data.Char
+import Data.Maybe
 import Control.Monad
 
 data Square = A | B | C | D | E | F | G | H | I | X | O deriving (Read, Eq, Ord)
@@ -41,35 +42,93 @@ onePlayerMode :: IO ()
 onePlayerMode = do
     putStrLn "One playa"
     putStrLn "Cool!  Get ready to play...AGAINST MY INVINCIBLE TIC TAC TOE AI!!!!! HAHAHAHA!!!"
-    --onePlayerGameLoop "Coming soon..."
+    onePlayerGameLoop emptyBoard PX
 
---onePlayerGameLoop :: String -> IO ()
---onePlayerGameLoop boardstate = do
---    putStrLn boardstate
+onePlayerGameLoop :: Board -> Player -> IO ()
+onePlayerGameLoop boardstate player = do
+    case detectWin boardstate of Just XWin -> endgame boardstate XWin
+                                 Just OWin -> endgame boardstate OWin
+                                 Just Tie -> endgame boardstate Tie
+                                 Nothing -> if player == PX then enter1PMove boardstate player else enterBestMove boardstate PO
+
+enter1PMove :: Board -> Player -> IO ()
+enter1PMove boardstate player = do
+     displayBoard boardstate
+     putStrLn ("Make your move. (A-I)")
+     move <- getLine
+     if (read (map toUpper move) :: Square) `elem` [ sq | sq <- concat boardstate]
+         then do
+            onePlayerGameLoop (newBoard (read (map toUpper move) :: Square) player boardstate) (if player == PX then PO else PX)
+         else do
+            putStrLn "That square is already occupied"
+            onePlayerGameLoop boardstate player
+
+enterBestMove :: Board -> Player -> IO ()
+enterBestMove boardstate player = onePlayerGameLoop (newBoard bestmove player boardstate) PX
+    where bestmove = fst $ findBestMove PO boardstate
+
+findBestMove :: Player -> Board -> (Square, Result)
+findBestMove player board
+   | player == PO = findMax results
+   | player == PX = findMin results
+   where findMin = foldl1 (\ acc x -> if snd x < snd acc then x else acc)
+         findMax = foldl1 (\ acc x -> if snd x > snd acc then x else acc)
+         --results = [(F,XWin),(G,OWin),(H,Tie)]
+         results = [ (sq, getResult b) | (sq, b) <- boards player board ]
+         getResult b = if detectWin b == Nothing 
+                       then snd (findBestMove (if player == PX then PO else PX) b) 
+                       else fromJust $ detectWin b
+
+newBoard :: Square -> Player -> Board -> Board
+newBoard move player boardstate = [ [if sq == move then mark else sq | sq <- row] | row <- boardstate]
+    where mark = if player == PX then X else O
+
+boards :: Player -> Board -> [(Square, Board)]
+boards player board = [(sq, newBoard sq player board) | sq <- concat board, sq /= X, sq /=O]
+
+detectWin :: Board -> (Maybe Result)
+detectWin boardstate
+   | [X,X,X] `elem` boardstate ++ transpose boardstate = Just XWin
+   | [X,X,X] `elem` [nwtose boardstate, netosw boardstate] = Just XWin
+   | [O,O,O] `elem` boardstate ++ transpose boardstate = Just OWin
+   | [O,O,O] `elem` [nwtose boardstate, netosw boardstate] = Just OWin
+   | [X,X,X,X,X,O,O,O,O] == (sort $ concat boardstate) = Just Tie
+   | otherwise = Nothing
+   where
+     nwtose :: Board -> [Square]
+     nwtose bs = bs!!0!!0 : bs!!1!!1 : bs!!2!!2 : []
+     netosw :: Board -> [Square]
+     netosw bs = bs!!0!!2 : bs!!1!!1 : bs!!2!!0 : []
+
+
+
+
+
+
 
 twoPlayerMode :: IO ()
 twoPlayerMode = do
     putStrLn "Two players"
-    gameLoop emptyBoard "2" PX -- start game loop with empty board, two players, initialize to player one
+    twoPlayerGameLoop emptyBoard PX -- start game loop with empty board, two players, initialize to player one
 
-gameLoop :: Board -> [Char] -> Player -> IO ()
-gameLoop boardstate players player = do
+twoPlayerGameLoop :: Board -> Player -> IO ()
+twoPlayerGameLoop boardstate player = do
     case detectWin boardstate of Just XWin -> endgame boardstate XWin
                                  Just OWin -> endgame boardstate OWin
                                  Just Tie -> endgame boardstate Tie 
-                                 Nothing -> enterMove boardstate players player
+                                 Nothing -> enterMove boardstate player
 
-enterMove :: Board -> [Char] -> Player -> IO () 
-enterMove boardstate players player = do
+enterMove :: Board -> Player -> IO () 
+enterMove boardstate player = do
      displayBoard boardstate
      putStrLn (show player ++ ", it's your turn. (A-I)")
      move <- getLine
      if (read (map toUpper move) :: Square) `elem` [ sq | sq <- concat boardstate]
          then do
-            gameLoop (newBoard (read (map toUpper move) :: Square) player boardstate) players (if player == PX then PO else PX)
+            twoPlayerGameLoop (newBoard (read (map toUpper move) :: Square) player boardstate) (if player == PX then PO else PX)
          else do
             putStrLn "That square is already occupied"
-            gameLoop boardstate players player
+            twoPlayerGameLoop boardstate player
 
 endgame :: Board -> Result -> IO ()
 endgame boardstate result = do
@@ -94,36 +153,8 @@ displayBoard :: Board -> IO ()
 displayBoard boardstate = do
     mapM_ print boardstate
 
-detectWin :: Board -> (Maybe Result)
-detectWin boardstate
-   | [X,X,X] `elem` boardstate ++ transpose boardstate = Just XWin
-   | [X,X,X] `elem` [nwtose boardstate, netosw boardstate] = Just XWin
-   | [O,O,O] `elem` boardstate ++ transpose boardstate = Just OWin
-   | [O,O,O] `elem` [nwtose boardstate, netosw boardstate] = Just OWin
-   | [X,X,X,X,X,O,O,O,O] == (sort $ concat boardstate) = Just Tie
-   | otherwise = Nothing
-   where
-     nwtose :: Board -> [Square]
-     nwtose bs = bs!!0!!0 : bs!!1!!1 : bs!!2!!2 : []
-     netosw :: Board -> [Square]
-     netosw bs = bs!!0!!2 : bs!!1!!1 : bs!!2!!0 : []
-
 emptyBoard :: Board
 emptyBoard = [[A,B,C],[D,E,F],[G,H,I]]
 
-newBoard :: Square -> Player -> Board -> Board
-newBoard move player boardstate = [ [if sq == move then mark else sq | sq <- row] | row <- boardstate]
-    where mark = if player == PX then X else O
-
-findBestMove :: String -> Board -> (Square, Int)
-findBestMove player board
-   | player == "1" = findMax results
-   | player == "2" = findMin results
-   where findMin = foldl1 (\ acc x -> if snd x > snd acc then x else acc)
-         findMax = foldl1 (\ acc x -> if snd x < snd acc then x else acc)
-         results = [(B,0),(F,0),(G,1),(H,0)]
-
-boards :: Player -> Board -> [(Square, Board)]
-boards player board = [(sq, newBoard sq player board) | sq <- concat board, sq /= X, sq /=O]
 
 

@@ -54,9 +54,10 @@ twoPlayerMode = do
 
 gameLoop :: Board -> [Char] -> Player -> IO ()
 gameLoop boardstate players player = do
-    case detectWin boardstate of "1" -> endgame boardstate PX
-                                 "2" -> endgame boardstate PO
-                                 "0" -> enterMove boardstate players player
+    case detectWin boardstate of Just XWin -> endgame boardstate XWin
+                                 Just OWin -> endgame boardstate OWin
+                                 Just Tie -> endgame boardstate Tie 
+                                 Nothing -> enterMove boardstate players player
 
 enterMove :: Board -> [Char] -> Player -> IO () 
 enterMove boardstate players player = do
@@ -70,10 +71,18 @@ enterMove boardstate players player = do
             putStrLn "That square is already occupied"
             gameLoop boardstate players player
 
-endgame boardstate player = do
+endgame :: Board -> Result -> IO ()
+endgame boardstate result = do
     displayBoard boardstate
-    putStrLn ("The game is over, and " ++ show player ++ " wins!")
-    putStrLn "The other guy is a loser lol"
+    if result `elem` [XWin, OWin]
+        then 
+            let player = if result == XWin then PX else PO
+            in do 
+                putStrLn ("The game is over, and " ++ show player ++ " wins!")
+                putStrLn "The other guy is a loser lol"
+        else do
+            putStrLn "The game is a tie"
+            putStrLn "You are both losers!  Ugh!"
     putStrLn "Want to play again? (y/n)"
     again <- getLine
     if again `elem` ["y", "Y", "yes", "Yes", "YES"] 
@@ -81,16 +90,18 @@ endgame boardstate player = do
         else do
             putStrLn "Goodbye"
 
+displayBoard :: Board -> IO ()
 displayBoard boardstate = do
     mapM_ print boardstate
 
-detectWin :: Board -> String
+detectWin :: Board -> (Maybe Result)
 detectWin boardstate
-   | [X,X,X] `elem` boardstate ++ transpose boardstate = "1"
-   | [X,X,X] `elem` [nwtose boardstate, netosw boardstate] = "1"
-   | [O,O,O] `elem` boardstate ++ transpose boardstate = "2"
-   | [O,O,O] `elem` [nwtose boardstate, netosw boardstate] = "2"
-   | otherwise = "0"
+   | [X,X,X] `elem` boardstate ++ transpose boardstate = Just XWin
+   | [X,X,X] `elem` [nwtose boardstate, netosw boardstate] = Just XWin
+   | [O,O,O] `elem` boardstate ++ transpose boardstate = Just OWin
+   | [O,O,O] `elem` [nwtose boardstate, netosw boardstate] = Just OWin
+   | [X,X,X,X,X,O,O,O,O] == (sort $ concat boardstate) = Just Tie
+   | otherwise = Nothing
    where
      nwtose :: Board -> [Square]
      nwtose bs = bs!!0!!0 : bs!!1!!1 : bs!!2!!2 : []
@@ -114,18 +125,5 @@ findBestMove player board
 
 boards :: Player -> Board -> [(Square, Board)]
 boards player board = [(sq, newBoard sq player board) | sq <- concat board, sq /= X, sq /=O]
-
-{-
-results :: [Board] -> [(Square, String)]
-results boards = [ (getSquare board, getOutcome board) | board <- boards]
-    where getSquare board = A
-          getOutcome board = "foo"
--}
---results ((c,b):bs) = 
-
-
-
-
-
 
 

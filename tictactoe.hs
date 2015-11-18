@@ -37,108 +37,89 @@ gameSelect = do
     case gameMode of "1" -> onePlayerMode
                      "2" -> twoPlayerMode
                      gameMode -> gameSelect
+    where onePlayerMode = do
+             putStrLn "One playa"
+             putStrLn "Cool!  Get ready to play...AGAINST MY INVINCIBLE TIC TAC TOE AI!!!!! HAHAHAHA!!!"
+             gameLoop1P emptyBoard PX
+          twoPlayerMode = do
+             putStrLn "Two players"
+             gameLoop2P emptyBoard PX
+          emptyBoard = [[A,B,C],[D,E,F],[G,H,I]]
 
-onePlayerMode :: IO ()
-onePlayerMode = do
-    putStrLn "One playa"
-    putStrLn "Cool!  Get ready to play...AGAINST MY INVINCIBLE TIC TAC TOE AI!!!!! HAHAHAHA!!!"
-    onePlayerGameLoop emptyBoard PX
+gameLoop1P = gameLoop 1
+gameLoop2P = gameLoop 2
+gameLoop :: Int -> Board -> Player -> IO ()
+gameLoop noOfPlayers board player = do
+    case detectWin board of Just XWin -> endgame board XWin
+                            Just OWin -> endgame board OWin
+                            Just Tie -> endgame board Tie
+                            Nothing -> if noOfPlayers == 1
+                                       then if player == PX 
+                                            then enterMove 1 board player 
+                                            else enterBestMove board PO
+                                       else enterMove 2 board player
 
-onePlayerGameLoop :: Board -> Player -> IO ()
-onePlayerGameLoop boardstate player = do
-    case detectWin boardstate of Just XWin -> endgame boardstate XWin
-                                 Just OWin -> endgame boardstate OWin
-                                 Just Tie -> endgame boardstate Tie
-                                 Nothing -> if player == PX then enter1PMove boardstate player else enterBestMove boardstate PO
-
-enter1PMove :: Board -> Player -> IO ()
-enter1PMove boardstate player = do
-     displayBoard boardstate
-     putStrLn ("Make your move. (A-I)")
+enterMove :: Int -> Board -> Player -> IO () 
+enterMove noOfPlayers board player = do
+     displayBoard board
+     if noOfPlayers == 1
+     then do putStrLn ("Make your move. (A-I)")
+     else do putStrLn (show player ++ ", it's your turn. (A-I)")
      move <- getLine
-     if (read (map toUpper move) :: Square) `elem` [ sq | sq <- concat boardstate]
+     if (read (map toUpper move) :: Square) `elem` [ sq | sq <- concat board]
          then do
-            onePlayerGameLoop (newBoard (read (map toUpper move) :: Square) player boardstate) (if player == PX then PO else PX)
+            gameLoop noOfPlayers (newBoard (read (map toUpper move) :: Square) player board) (if player == PX then PO else PX)
          else do
             putStrLn "That square is already occupied"
-            onePlayerGameLoop boardstate player
+            gameLoop noOfPlayers board player
 
 enterBestMove :: Board -> Player -> IO ()
-enterBestMove boardstate player = onePlayerGameLoop (newBoard bestmove player boardstate) PX
-    where bestmove = fst $ findBestMove PO boardstate
+enterBestMove board player = gameLoop1P (newBoard bestmove player board) PX
+    where bestmove = fst $ findBestMove PO board
+          findBestMove :: Player -> Board -> (Square, Result)
+          findBestMove player board
+            | player == PO = findMax results
+            | player == PX = findMin results
+            where findMin = foldl1 (\ acc x -> if snd x < snd acc then x else acc)
+                  findMax = foldl1 (\ acc x -> if snd x > snd acc then x else acc)
+                  results = [ (sq, getResult b) | (sq, b) <- boards player board ]
+                  getResult b = if detectWin b == Nothing 
+                                then snd (findBestMove (if player == PX then PO else PX) b) 
+                                else fromJust $ detectWin b
+                  boards :: Player -> Board -> [(Square, Board)]
+                  boards player board = [(sq, newBoard sq player board) | sq <- concat board, sq /= X, sq /=O]
 
-findBestMove :: Player -> Board -> (Square, Result)
-findBestMove player board
-   | player == PO = findMax results
-   | player == PX = findMin results
-   where findMin = foldl1 (\ acc x -> if snd x < snd acc then x else acc)
-         findMax = foldl1 (\ acc x -> if snd x > snd acc then x else acc)
-         --results = [(F,XWin),(G,OWin),(H,Tie)]
-         results = [ (sq, getResult b) | (sq, b) <- boards player board ]
-         getResult b = if detectWin b == Nothing 
-                       then snd (findBestMove (if player == PX then PO else PX) b) 
-                       else fromJust $ detectWin b
+displayBoard :: Board -> IO ()
+displayBoard board = do
+    mapM_ print board
 
 newBoard :: Square -> Player -> Board -> Board
-newBoard move player boardstate = [ [if sq == move then mark else sq | sq <- row] | row <- boardstate]
+newBoard move player board = [ [if sq == move then mark else sq | sq <- row] | row <- board]
     where mark = if player == PX then X else O
 
-boards :: Player -> Board -> [(Square, Board)]
-boards player board = [(sq, newBoard sq player board) | sq <- concat board, sq /= X, sq /=O]
-
 detectWin :: Board -> (Maybe Result)
-detectWin boardstate
-   | [X,X,X] `elem` boardstate ++ transpose boardstate = Just XWin
-   | [X,X,X] `elem` [nwtose boardstate, netosw boardstate] = Just XWin
-   | [O,O,O] `elem` boardstate ++ transpose boardstate = Just OWin
-   | [O,O,O] `elem` [nwtose boardstate, netosw boardstate] = Just OWin
-   | [X,X,X,X,X,O,O,O,O] == (sort $ concat boardstate) = Just Tie
+detectWin board
+   | [X,X,X] `elem` board ++ transpose board = Just XWin
+   | [X,X,X] `elem` [diagonal1 board, diagonal2 board] = Just XWin
+   | [O,O,O] `elem` board ++ transpose board = Just OWin
+   | [O,O,O] `elem` [diagonal1 board, diagonal2 board] = Just OWin
+   | [X,X,X,X,X,O,O,O,O] == (sort $ concat board) = Just Tie
    | otherwise = Nothing
    where
-     nwtose :: Board -> [Square]
-     nwtose bs = bs!!0!!0 : bs!!1!!1 : bs!!2!!2 : []
-     netosw :: Board -> [Square]
-     netosw bs = bs!!0!!2 : bs!!1!!1 : bs!!2!!0 : []
-
-
-
-
-
-
-
-twoPlayerMode :: IO ()
-twoPlayerMode = do
-    putStrLn "Two players"
-    twoPlayerGameLoop emptyBoard PX -- start game loop with empty board, two players, initialize to player one
-
-twoPlayerGameLoop :: Board -> Player -> IO ()
-twoPlayerGameLoop boardstate player = do
-    case detectWin boardstate of Just XWin -> endgame boardstate XWin
-                                 Just OWin -> endgame boardstate OWin
-                                 Just Tie -> endgame boardstate Tie 
-                                 Nothing -> enterMove boardstate player
-
-enterMove :: Board -> Player -> IO () 
-enterMove boardstate player = do
-     displayBoard boardstate
-     putStrLn (show player ++ ", it's your turn. (A-I)")
-     move <- getLine
-     if (read (map toUpper move) :: Square) `elem` [ sq | sq <- concat boardstate]
-         then do
-            twoPlayerGameLoop (newBoard (read (map toUpper move) :: Square) player boardstate) (if player == PX then PO else PX)
-         else do
-            putStrLn "That square is already occupied"
-            twoPlayerGameLoop boardstate player
+     diagonal1 :: Board -> [Square]
+     diagonal1 bs = bs!!0!!0 : bs!!1!!1 : bs!!2!!2 : []
+     diagonal2 :: Board -> [Square]
+     diagonal2 bs = bs!!0!!2 : bs!!1!!1 : bs!!2!!0 : []
 
 endgame :: Board -> Result -> IO ()
-endgame boardstate result = do
-    displayBoard boardstate
+endgame board result = do
+    displayBoard board
     if result `elem` [XWin, OWin]
         then 
             let player = if result == XWin then PX else PO
             in do 
                 putStrLn ("The game is over, and " ++ show player ++ " wins!")
-                putStrLn "The other guy is a loser lol"
+                putStrLn ((if player == PX then show PO else show PX) ++ " is a loser lol")
         else do
             putStrLn "The game is a tie"
             putStrLn "You are both losers!  Ugh!"
@@ -148,13 +129,6 @@ endgame boardstate result = do
         then gameSelect 
         else do
             putStrLn "Goodbye"
-
-displayBoard :: Board -> IO ()
-displayBoard boardstate = do
-    mapM_ print boardstate
-
-emptyBoard :: Board
-emptyBoard = [[A,B,C],[D,E,F],[G,H,I]]
 
 
 

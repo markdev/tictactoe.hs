@@ -40,14 +40,12 @@ gameSelect = do
     where onePlayerMode = do
              putStrLn "One playa"
              putStrLn "Cool!  Get ready to play...AGAINST MY INVINCIBLE TIC TAC TOE AI!!!!! HAHAHAHA!!!"
-             gameLoop1P emptyBoard PX
+             gameLoop 1 emptyBoard PX
           twoPlayerMode = do
              putStrLn "Two players"
-             gameLoop2P emptyBoard PX
+             gameLoop 2 emptyBoard PX
           emptyBoard = [[A,B,C],[D,E,F],[G,H,I]]
 
-gameLoop1P = gameLoop 1
-gameLoop2P = gameLoop 2
 gameLoop :: Int -> Board -> Player -> IO ()
 gameLoop noOfPlayers board player = do
     case detectWin board of Just XWin -> endgame board XWin
@@ -66,15 +64,20 @@ enterMove noOfPlayers board player = do
      then do putStrLn ("Make your move. (A-I)")
      else do putStrLn (show player ++ ", it's your turn. (A-I)")
      move <- getLine
-     if (read (map toUpper move) :: Square) `elem` [ sq | sq <- concat board]
+     print move
+     if not $ move `elem` ["a","b","c","d","e","f","g","h","i"]
          then do
-            gameLoop noOfPlayers (newBoard (read (map toUpper move) :: Square) player board) (if player == PX then PO else PX)
-         else do
-            putStrLn "That square is already occupied"
+            putStrLn $ move ++ " is not a move, doofus"
             gameLoop noOfPlayers board player
+         else if (read (map toUpper move) :: Square) `elem` [ sq | sq <- concat board]
+            then do
+               gameLoop noOfPlayers (newBoard (read (map toUpper move) :: Square) player board) (if player == PX then PO else PX)
+            else do
+               putStrLn "That square is already occupied"
+               gameLoop noOfPlayers board player
 
 enterBestMove :: Board -> Player -> IO ()
-enterBestMove board player = gameLoop1P (newBoard bestmove player board) PX
+enterBestMove board player = gameLoop 1 (newBoard bestmove player board) PX
     where bestmove = fst $ findBestMove PO board
           findBestMove :: Player -> Board -> (Square, Result)
           findBestMove player board

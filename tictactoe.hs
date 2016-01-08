@@ -26,7 +26,7 @@ data Result = XWin | Tie | OWin deriving (Read, Show, Eq, Ord)
 
 main :: IO ()
 main = do
-    putStrLn "Let's play some motherfuckin tic tac toe!!!"
+    putStrLn "Let's play some tic tac toe!!!"
     putStrLn "Yeeeaaaaaahh!!!"
     gameSelect
 
